@@ -1,246 +1,145 @@
-# AutoSchemaKG: A Knowledge Graph Construction Framework with Schema Generation and Knowledge Graph Completion
+# Atlas RAG 知识图谱 Cypher 导入脚本展开器
 
-This repository contains the implementation of AutoSchemaKG, a novel framework for automatic knowledge graph construction that combines schema generation via conceptualization. The framework is designed to address the challenges of constructing high-quality knowledge graphs from unstructured text.
+这个工具可以将使用 `LOAD CSV` 的 Cypher 导入脚本展开为具体的 `CREATE` 和 `MATCH` 命令，方便调试和理解数据导入过程。
 
-This project uses the following paper and data:
+## 功能特点
 
-*   **Paper:** [Read the paper](https://arxiv.org/abs/2505.23628)
-*   **Full Data:** [Download the dataset](https://hkustconnect-my.sharepoint.com/:f:/g/personal/jbai_connect_ust_hk/EgJCqoU91KpAlSSOi6dzgccB6SCL4YBpsCyEtGiRBV4WNg) (onedrive)
-*   **Neo4j CSV Dumps:** [Download the dataset](https://huggingface.co/datasets/AlexFanWei/AutoSchemaKG) (huggingface dataset)
+- 📊 **CSV 数据读取**: 自动读取指定的 CSV 文件
+- 🔧 **命令展开**: 将 `LOAD CSV` 操作转换为具体的 Cypher 命令
+- 🛡️ **字符串转义**: 自动处理特殊字符的转义
+- 📈 **统计信息**: 提供 CSV 文件处理摘要
+- 🎯 **灵活输出**: 支持文件输出或标准输出
 
-### Update
-- (05/07) Update with batch generation and refactor the codebase. Add PDF-md-json instruction. [See PDF support](#pdf-support)
-- (24/06) Add: ToG, Chinese KG construction (refer to example_scripts for KG construction with different language). Separate NV-embed-v2 transformers dependency.
-
-## AutoSchemaKG Overview
-
-AutoSchemaKG introduces a two-stage approach:
-1. **Knowledge Graph Triple Extraction**: Extract triples comprising entities and events from text by using LLMs 
-2. **Schema Induction**: Automatically generate schema for the knowledge graph by using conceptualization and create semantic bridges between seemingly disparate information to enable zero-shot inferencing across domains
-
-
-The framework achieves state-of-the-art performance on multiple benchmarks and demonstrates strong generalization capabilities across different domains.
-
-## ATLAS Knowledge Graphs
-
-ATLAS (Automated Triple Linking And Schema induction) is a family of knowledge graphs created through the AutoSchemaKG framework, which enables fully autonomous knowledge graph construction without predefined schemas. Here's a summary of what ATLAS is and how it works:
-
-### Key Features of ATLAS Knowledge Graphs
-
-- **Scale**: Consists of 900+ million nodes connected by 5.9 billion edges
-- **Autonomous Construction**: Built without predefined schemas or manual intervention
-- **Three Variants**: ATLAS-Wiki (from Wikipedia), ATLAS-Pes2o (from academic papers), and ATLAS-CC (from Common Crawl)
-
-
-
-
-## Project Structure
+## 文件结构
 
 ```
-AutoSchemaKG/
-├── atlas_rag/                # Main package directory
-│   ├── kg_construction/      # Knowledge graph construction modules
-│   ├── llm_generator/        # Components for large language model generation
-│   ├── retriever/            # Retrieval components for RAG
-│   ├── utils/                # Utility functions for various tasks
-│   └── vectorstore/          # Components for managing vector storage and embeddings
-├── example_data/             # Sample data for testing and examples
-├── example_scripts/          # Example scripts for usage demonstrations
-├── log/                      # Log files for tracking processes
-├── neo4j_api_host/           # API hosting for Neo4j
-├── neo4j_scripts/            # Scripts for managing Neo4j databases
-├── tests/                    # Unit tests for the project
-├── .gitignore                # Git ignore file
-├── README.md                 # Main documentation for the project
-├── atlas_billion_kg_usage.ipynb   # Example for hosting and RAG with ATLAS
-├── atlas_full_pipeline.ipynb       # Full pipeline for constructing knowledge graphs
-└── atlas_multihopqa.ipynb          # Example for benchmarking multi-hop QA datasets
+/workspace/
+├── expand_cypher_import.py     # 主要的展开器脚本
+├── example_usage.py            # 使用示例和演示
+├── expanded_cypher_import.cql  # 生成的展开脚本示例
+└── mri_artifacts/              # 示例 CSV 数据目录
+    ├── triples_csv/
+    │   ├── text_nodes_mri_artifacts_from_json.csv
+    │   ├── triple_nodes_mri_artifacts_from_json_without_emb.csv
+    │   └── text_edges_mri_artifacts_from_json.csv
+    └── concept_csv/
+        ├── concept_nodes_mri_artifacts_from_json_with_concept.csv
+        ├── triple_edges_mri_artifacts_from_json_with_concept.csv
+        └── concept_edges_mri_artifacts_from_json_with_concept.csv
 ```
 
-The project is organized into several key components:
-- `atlas_rag/`: Core package containing the main functionality
-- Evaluation directories for different aspects of the system
-- Database-related scripts and API hosting
-- Example notebooks demonstrating usage
-- Import and distribution directories for data management
+## 使用方法
 
-## Install atlas-rag through pip
+### 1. 基本使用
+
 ```bash
-pip install atlas-rag
+# 显示帮助信息
+python3 expand_cypher_import.py --help
+
+# 显示 CSV 文件摘要
+python3 expand_cypher_import.py --summary
+
+# 生成展开脚本到文件
+python3 expand_cypher_import.py --output expanded_script.cql
+
+# 输出到标准输出
+python3 expand_cypher_import.py
 ```
-To support NV-embed-v2, install the transformers package with the version constraint >=4.42.4,<=4.47.1 by running:
+
+### 2. 指定自定义路径
+
 ```bash
-pip install atlas-rag[nvembed]
+# 指定 CSV 文件的基础路径
+python3 expand_cypher_import.py --base-path /path/to/your/data --output result.cql
 ```
 
-### KG Construction with ATLAS
+### 3. 运行示例
 
-```python
-from atlas_rag.kg_construction.triple_extraction import KnowledgeGraphExtractor
-from atlas_rag.kg_construction.triple_config import ProcessingConfig
-from atlas_rag.llm_generator import LLMGenerator
-from openai import OpenAI
-from transformers import pipeline
-# client = OpenAI(api_key='<your_api_key>',base_url="<your_api_base_url>") 
-# model_name = "meta-llama/llama-3.1-8b-instruct"
-
-model_name = "meta-llama/Llama-3.1-8B-Instruct"
-client = pipeline(
-    "text-generation",
-    model=model_name,
-    device_map="auto",
-)
-keyword = 'Dulce'
-output_directory = f'import/{keyword}'
-triple_generator = LLMGenerator(client, model_name=model_name)
-kg_extraction_config = ProcessingConfig(
-      model_path=model_name,
-      data_directory="example_data",
-      filename_pattern=filename_pattern,
-      batch_size_triple=3, # batch size for triple extraction
-      batch_size_concept=16, # batch size for concept generation
-      output_directory=f"{output_directory}",
-      max_new_tokens=2048,
-      max_workers=3,
-      remove_doc_spaces=True, # For removing duplicated spaces in the document text
-)
-kg_extractor = KnowledgeGraphExtractor(model=triple_generator, config=kg_extraction_config)
-
-# Construct entity&event graph
-kg_extractor.run_extraction() # Involved LLM Generation
-# Convert Triples Json to CSV
-kg_extractor.convert_json_to_csv()
-# Concept Generation
-kg_extractor.generate_concept_csv(batch_size=64) # Involved LLM Generation
-# Create Concept CSV
-kg_extractor.create_concept_csv()
-# Convert csv to graphml for networkx
-kg_extractor.convert_to_graphml()
-```
-
-## Large Knowledge Graph Hosting and Retrieval Augmented Generation
-
-This repository provides support for hosting and implementing Retrieval Augmented Generation (RAG) over our constructed knowledge graphs: `ATLAS-wiki`, `ATLAS-pes2o`, and `ATLAS-cc`. For detailed instructions on hosting and running these knowledge graphs, please refer to the `atlas_billion_kg_usage.ipynb` notebook. 
-
-## Building New Knowledge Graphs and Implementing RAG
-
-The `atlas_full_pipeline.ipynb` notebook demonstrates how to:
-- Build new knowledge graphs using AutoschemaKG
-- Implement Retrieval Augmented Generation on your custom knowledge graphs
-
-
-## Multi-hop Question Answering Evaluation
-
-To replicate our multi-hop question answering evaluation results on benchmark datasets:
-- `MuSiQue`
-- `HotpotQA` 
-- `2WikiMultiHopQA`
-
-Please follow the instructions in the `atlas_multihopqa.ipynb` notebook, which contains all necessary code and configuration details.
-
-## General Evaluation
-
-
-The framework includes comprehensive evaluation metrics across three dimensions:
-- Knowledge Graph Quality  (`EvaluateKGC`)
-- Factual Consistency on FELM (`EvaluateFactuality`)
-- General Performance on MMLU (`EValuateGeneralTask`)
-
-Detailed evaluation procedures can be found in the respective evaluation directories.
-
-## PDF Support
-Creator: [swgj](https://github.com/Swgj)
-
-Due to the version requirement of marker-pdf, we suggest you to create a new conda environment for PDF-to-Markdown Transformation.
-
-Git clone PDF transform repo.
-``` bash
-git clone https://github.com/Swgj/pdf_process
-cd pdf_process
-conda create --name pdf-marker pip python=3.10
-conda activate pdf-marker
-pip install 'marker-pdf[full]'
-pip install google-genai
-```
-Modify the config.yaml file.
-``` yaml
-processing_config:
-  llm_service: "marker.services.azure_openai.AzureOpenAIService" # to use Azure OpenAI Service. To use default Gemini server, you can comment this line
-  other_config:
-    use_llm: true
-    extract_images: false  # false means not to extract images and use LLM for text description; true means extract images but not generate descriptions
-    page_range: null  # null means process all pages, or use List[int] format like [9, 10, 11, 12]
-    max_concurrency: 2 # maximum number of concurrent processes
-    #Azure OpenAI API configuration
-    azure_endpoint: <your endpoint>
-    azure_api_version: "2024-10-21"
-    deployment_name: "gpt-4o"
-
-# API configuration
-api:
-  # api_key_env: "GEMINI_API_KEY"  # Uncomment this line for Gemini API key
-  api_key_env: "AZURE_API_KEY"
-
-# Input path configuration - can be a file or folder path
-input:
-  # Supports relative and absolute paths
-  path: "test_data"  # Can be a single file path or folder path
-  # path: "data/Apple_Environmental_Progress_Report_2024.pdf"  # Example of a single file
-  
-  # If it's a folder, you can set file filtering conditions
-  file_filters:
-    extensions: [".pdf"]  # Only process PDF files
-    recursive: true       # Whether to recursively process subfolders
-    exclude_patterns:     # Exclude files that match these patterns
-      - "*temp*"
-      - "*~*"
-
-# Output configuration
-output:
-  base_dir: "md_output"     # Output directory
-  create_subdirs: true   # Whether to create a subdirectory for each input file
-  format: "md"           # Output format (md, txt)
-  
-# Logging configuration
-logging:
-  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
-  show_progress: true
-```
-
-Run
 ```bash
-bash run.sh
-```
-Cheers! You have a Markdown version of your PDF file. You can now change directories back to your parent directory and run the command below to obtain your JSON file for further Atlas-RAG KG construction.
-```
-python -m atlas_rag.kg_construction.utils.md_processing.markdown_to_json --input example_data/md_data --output example_data
+# 运行完整示例（包含示例数据生成）
+python3 example_usage.py
 ```
 
-## Citation
+## 原始 Cypher 脚本 vs 展开脚本
 
-If you use this code in your research, please cite our paper:
+### 原始脚本（使用 LOAD CSV）
 
-```
-@misc{bai2025autoschemakgautonomousknowledgegraph,
-      title={AutoSchemaKG: Autonomous Knowledge Graph Construction through Dynamic Schema Induction from Web-Scale Corpora}, 
-      author={Jiaxin Bai and Wei Fan and Qi Hu and Qing Zong and Chunyang Li and Hong Ting Tsang and Hongyu Luo and Yauwai Yim and Haoyu Huang and Xiao Zhou and Feng Qin and Tianshi Zheng and Xi Peng and Xin Yao and Huiwen Yang and Leijie Wu and Yi Ji and Gong Zhang and Renhai Chen and Yangqiu Song},
-      year={2025},
-      eprint={2505.23628},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2505.23628}, 
-}
+```cypher
+// 导入文本节点
+LOAD CSV WITH HEADERS FROM 'file:///mri_artifacts/triples_csv/text_nodes_mri_artifacts_from_json.csv' AS row
+CREATE (t:Text {
+    id: row.`name:ID`,
+    content: row.content,
+    metadata: row.metadata
+});
 ```
 
+### 展开脚本（具体命令）
 
+```cypher
+// 导入文本节点
+CREATE (t:Text {id: 'text_001', content: 'MRI artifacts can significantly impact image quality', metadata: '{"source": "medical_paper_1"}'});
+CREATE (t:Text {id: 'text_002', content: 'Motion artifacts are common in pediatric imaging', metadata: '{"source": "medical_paper_2"}'});
+CREATE (t:Text {id: 'text_003', content: 'Susceptibility artifacts occur near metal implants', metadata: '{"source": "medical_paper_3"}'});
+```
 
+## 支持的数据类型
 
+脚本支持以下类型的数据导入：
 
-## Contact
+1. **文本节点** (`Text`): 包含文本内容和元数据
+2. **实体节点** (`Entity`): 包含实体信息、类型、概念和同义词集
+3. **概念节点** (`Concept`): 包含概念定义
+4. **三元组关系** (`RELATES`): 实体间的关系
+5. **概念关系** (`HAS_CONCEPT`): 实体到概念的关系
+6. **文本关系** (`CONTAINS`): 文本到实体的关系
 
-Jiaxin Bai: jbai@connect.ust.hk 
+## 输出格式
 
-Dennis Hong Ting TSANG : httsangaj@connect.ust.hk
+生成的脚本包含以下部分：
 
-Haoyu Huang: haoyuhuang@link.cuhk.edu.hk
+1. **约束和索引创建**: 唯一性约束和性能索引
+2. **数据导入命令**: 按类型分组的具体 CREATE 和 MATCH 命令
+3. **统计查询**: 用于验证导入结果的查询命令
 
+## 注意事项
+
+- 确保 CSV 文件路径正确且文件存在
+- CSV 文件必须包含正确的列标题
+- 特殊字符会被自动转义
+- 生成的脚本可以直接在 Neo4j 中执行
+
+## 示例数据
+
+脚本包含了 MRI 伪影相关的示例数据，包括：
+
+- **实体**: motion_artifact, pediatric_patient, metal_implant, image_quality
+- **概念**: motion, artifact, imaging, pediatric, patient, metal, implant, quality
+- **关系**: affects, experiences, causes
+- **文本**: 医学论文中关于 MRI 伪影的描述
+
+## 错误处理
+
+- 文件不存在时会显示警告并跳过
+- CSV 读取错误会显示详细错误信息
+- 字符串转义确保生成的 Cypher 语法正确
+
+## 扩展性
+
+可以通过修改 `CypherExpander` 类来支持：
+
+- 新的节点类型
+- 不同的关系类型
+- 自定义的属性映射
+- 额外的数据验证
+
+## 性能考虑
+
+- 大型 CSV 文件可能需要较长处理时间
+- 生成的脚本对于大量数据可能需要分批执行
+- 建议在执行前先在测试环境中验证
+
+---
+
+*生成时间: 2025-09-28*  
+*数据集: mri_artifacts*

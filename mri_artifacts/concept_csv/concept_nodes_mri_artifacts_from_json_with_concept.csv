@@ -1,0 +1,9 @@
+concept_id:ID,name
+concept_001,motion
+concept_002,artifact
+concept_003,imaging
+concept_004,pediatric
+concept_005,patient
+concept_006,metal
+concept_007,implant
+concept_008,quality

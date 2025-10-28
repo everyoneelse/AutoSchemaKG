@@ -1,0 +1,5 @@
+name:ID,type,concepts,synsets
+motion_artifact,artifact,"['motion', 'artifact', 'imaging']","['motion.n.01', 'artifact.n.01']"
+pediatric_patient,patient,"['pediatric', 'patient', 'child']","['child.n.01', 'patient.n.01']"
+metal_implant,implant,"['metal', 'implant', 'medical_device']","['implant.n.01', 'metal.n.01']"
+image_quality,quality,"['image', 'quality', 'assessment']","['quality.n.01', 'image.n.01']"

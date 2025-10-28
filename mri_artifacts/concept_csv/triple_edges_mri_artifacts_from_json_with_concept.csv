@@ -1,0 +1,4 @@
+:START_ID,:END_ID,relation,concepts,synsets
+motion_artifact,image_quality,affects,"['affects', 'impact']","['affect.v.01']"
+pediatric_patient,motion_artifact,experiences,"['experiences', 'has']","['experience.v.01']"
+metal_implant,motion_artifact,causes,"['causes', 'produces']","['cause.v.01']"

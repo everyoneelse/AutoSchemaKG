@@ -1,0 +1,8 @@
+:START_ID,:END_ID
+motion_artifact,concept_001
+motion_artifact,concept_002
+pediatric_patient,concept_004
+pediatric_patient,concept_005
+metal_implant,concept_006
+metal_implant,concept_007
+image_quality,concept_008

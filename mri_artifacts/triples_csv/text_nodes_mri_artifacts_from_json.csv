@@ -1,0 +1,4 @@
+name:ID,content,metadata
+text_001,"MRI artifacts can significantly impact image quality","{'source': 'medical_paper_1'}"
+text_002,"Motion artifacts are common in pediatric imaging","{'source': 'medical_paper_2'}"
+text_003,"Susceptibility artifacts occur near metal implants","{'source': 'medical_paper_3'}"
